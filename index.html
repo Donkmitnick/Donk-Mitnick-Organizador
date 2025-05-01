@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizador de Dados CNPJ</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .input-area, .output-area {
+            margin-bottom: 20px;
+        }
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+        }
+        button {
+            display: block;
+            margin: 20px auto;
+            padding: 10px 20px;
+            background-color: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .result {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .copy-btn {
+            display: block;
+            margin: 10px 0;
+            padding: 5px 10px;
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .copy-btn:hover {
+            background-color: #219955;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Organizador de Dados CNPJ</h1>
+        
+        <div class="input-area">
+            <h3>Cole os dados no formato bruto abaixo:</h3>
+            <textarea id="inputData" placeholder="Cole os dados do CNPJ aqui..."></textarea>
+            <button id="processButton">Processar Dados</button>
+        </div>
+        
+        <div class="output-area">
+            <h3>Resultado processado:</h3>
+            <button id="copyButton" class="copy-btn">Copiar resultado</button>
+            <div id="outputResult" class="result">O resultado processado aparecerá aqui...</div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('processButton').addEventListener('click', function() {
+            const inputText = document.getElementById('inputData').value.trim();
+            if (!inputText) {
+                alert('Por favor, cole os dados para processar.');
+                return;
+            }
+            
+            const result = processData(inputText);
+            document.getElementById('outputResult').textContent = result;
+        });
+        
+        document.getElementById('copyButton').addEventListener('click', function() {
+            const outputText = document.getElementById('outputResult').textContent;
+            navigator.clipboard.writeText(outputText).then(function() {
+                alert('Resultado copiado para a área de transferência!');
+            }, function(err) {
+                alert('Não foi possível copiar o texto: ' + err);
+            });
+        });
+        
+        function processData(inputText) {
+            // Extrai os dados principais
+            let cnpj = extractValue(inputText, 'CNPJ', /CNPJ\s+(\d+)/);
+            let razaoSocial = extractValue(inputText, 'RAZÃO SOCIAL', /RAZÃO SOCIAL\s+(.+?)(?=\n|$)/);
+            let nomeFantasia = extractValue(inputText, 'NOME FANTASIA', /NOME FANTASIA\s+(.+?)(?=\n|$)/);
+            let email = extractValue(inputText, 'E-MAIL', /E-MAIL\s+(.+?)(?=\n|$)/);
+            
+            // Extrai os telefones (todos os números com formato de telefone)
+            const telefonesRegex = /\((\d+)\)\s*(\d+[-\s]?\d+)/g;
+            let telefones = [];
+            let match;
+            
+            // Também procura por telefones em formato sem parênteses (11XXXXXXXX)
+            const telefonesSimplesRegex = /\b(\d{10,11})\b/g;
+            
+            while ((match = telefonesRegex.exec(inputText)) !== null) {
+                telefones.push(`(${match[1]}) ${match[2].trim()}`);
+            }
+            
+            while ((match = telefonesSimplesRegex.exec(inputText)) !== null) {
+                // Verifica se já não é parte de um CNPJ ou outro número grande
+                if (match[1].length === 10 || match[1].length === 11) {
+                    // Formata o telefone
+                    const tel = match[1];
+                    if (tel !== cnpj) { // Evita adicionar o CNPJ como telefone
+                        telefones.push(formatarTelefone(tel));
+                    }
+                }
+            }
+            
+            // Remove duplicados dos telefones
+            telefones = [...new Set(telefones)];
+            
+            // Extrai informações adicionais
+            let adicionaisSection = inputText.includes('ADICIONAIS:') ? 
+                inputText.split('ADICIONAIS:')[1] : '';
+            
+            let nome = '';
+            let cpf = '';
+            let nascimento = '';
+            
+            if (adicionaisSection) {
+                nome = extractValue(adicionaisSection, 'Nome', /Nome\s+(.+?)(?=\n|$)/);
+                cpf = extractValue(adicionaisSection, 'CPF', /CPF\s+(\d+)/);
+                nascimento = extractValue(adicionaisSection, 'Nascimento', /Nascimento\s+(.+?)(?=\n|$)/);
+            }
+            
+            // Monta o resultado final
+            let result = `CNPJ\t${cnpj}\n`;
+            result += `RAZÃO SOCIAL\t${razaoSocial}\n`;
+            if (nomeFantasia && nomeFantasia.trim()) {
+                result += `NOME FANTASIA\t${nomeFantasia}\n`;
+            }
+            result += `E-MAIL\t${email}\n`;
+            result += '\t\n';
+            
+            // Adiciona os telefones
+            telefones.forEach(tel => {
+                result += `${tel}\t\t\n`;
+            });
+            
+            // Adiciona informações adicionais se existirem
+            if (nome || cpf || nascimento) {
+                result += 'ADICIONAIS:\n';
+                if (nome) result += `Nome\t${nome}\n`;
+                if (cpf) result += `CPF\t${cpf}\n`;
+                if (nascimento) result += `Nascimento\t${nascimento}\n`;
+            }
+            
+            return result;
+        }
+        
+        function extractValue(text, fieldName, regex) {
+            const match = text.match(regex);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+            
+            // Segunda tentativa com uma abordagem mais genérica
+            const lines = text.split('\n');
+            for (let line of lines) {
+                if (line.includes(fieldName)) {
+                    const parts = line.split(/\s{2,}|\t/);
+                    if (parts.length > 1) {
+                        return parts[parts.length - 1].trim();
+                    }
+                }
+            }
+            
+            // Terceira tentativa, procura valor após o campo no formato "Live ->"
+            if (fieldName === "CNPJ" && text.includes("Live ->")) {
+                const liveMatch = text.match(/Live -> (\d+)/);
+                if (liveMatch && liveMatch[1]) {
+                    return liveMatch[1].trim();
+                }
+            }
+            
+            if (fieldName === "RAZÃO SOCIAL" && text.includes("Razao Social:")) {
+                const razaoMatch = text.match(/Razao Social: ([^|]+)/);
+                if (razaoMatch && razaoMatch[1]) {
+                    return razaoMatch[1].trim();
+                }
+            }
+            
+            if (fieldName === "E-MAIL" && text.includes("Email:")) {
+                const emailMatch = text.match(/Email: ([^|]+)/);
+                if (emailMatch && emailMatch[1]) {
+                    return emailMatch[1].trim();
+                }
+            }
+            
+            return '';
+        }
+        
+        function formatarTelefone(numero) {
+            // Se o número tiver 11 dígitos (com DDD)
+            if (numero.length === 11) {
+                return `(${numero.substring(0, 2)}) ${numero.substring(2)}`;
+            }
+            // Se o número tiver 10 dígitos (com DDD, sem o 9 inicial)
+            else if (numero.length === 10) {
+                return `(${numero.substring(0, 2)}) ${numero.substring(2)}`;
+            }
+            return numero;
+        }
+    </script>
+</body>
+</html>
