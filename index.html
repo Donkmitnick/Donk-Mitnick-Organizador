@@ -116,11 +116,27 @@
         });
         
         function processData(inputText) {
+            // Divide o texto em blocos usando o separador
+            const separator = "=================================================================";
+            const blocks = inputText.split(separator).filter(block => block.trim() !== '');
+            
+            // Processa cada bloco individualmente
+            let results = [];
+            
+            for (const block of blocks) {
+                results.push(processBlock(block.trim()));
+            }
+            
+            // Junta os resultados com o mesmo separador
+            return results.join('\n' + separator + '\n');
+        }
+        
+        function processBlock(blockText) {
             // Extrai os dados principais
-            let cnpj = extractValue(inputText, 'CNPJ', /CNPJ\s+(\d+)/);
-            let razaoSocial = extractValue(inputText, 'RAZÃO SOCIAL', /RAZÃO SOCIAL\s+(.+?)(?=\n|$)/);
-            let nomeFantasia = extractValue(inputText, 'NOME FANTASIA', /NOME FANTASIA\s+(.+?)(?=\n|$)/);
-            let email = extractValue(inputText, 'E-MAIL', /E-MAIL\s+(.+?)(?=\n|$)/);
+            let cnpj = extractValue(blockText, 'CNPJ', /CNPJ\s+(\d+)/);
+            let razaoSocial = extractValue(blockText, 'RAZÃO SOCIAL', /RAZÃO SOCIAL\s+(.+?)(?=\n|$)/);
+            let nomeFantasia = extractValue(blockText, 'NOME FANTASIA', /NOME FANTASIA\s+(.+?)(?=\n|$)/);
+            let email = extractValue(blockText, 'E-MAIL', /E-MAIL\s+(.+?)(?=\n|$)/);
             
             // Extrai os telefones (todos os números com formato de telefone)
             const telefonesRegex = /\((\d+)\)\s*(\d+[-\s]?\d+)/g;
@@ -130,11 +146,11 @@
             // Também procura por telefones em formato sem parênteses (11XXXXXXXX)
             const telefonesSimplesRegex = /\b(\d{10,11})\b/g;
             
-            while ((match = telefonesRegex.exec(inputText)) !== null) {
+            while ((match = telefonesRegex.exec(blockText)) !== null) {
                 telefones.push(`(${match[1]}) ${match[2].trim()}`);
             }
             
-            while ((match = telefonesSimplesRegex.exec(inputText)) !== null) {
+            while ((match = telefonesSimplesRegex.exec(blockText)) !== null) {
                 // Verifica se já não é parte de um CNPJ ou outro número grande
                 if (match[1].length === 10 || match[1].length === 11) {
                     // Formata o telefone
@@ -149,8 +165,8 @@
             telefones = [...new Set(telefones)];
             
             // Extrai informações adicionais
-            let adicionaisSection = inputText.includes('ADICIONAIS:') ? 
-                inputText.split('ADICIONAIS:')[1] : '';
+            let adicionaisSection = blockText.includes('ADICIONAIS:') ? 
+                blockText.split('ADICIONAIS:')[1] : '';
             
             let nome = '';
             let cpf = '';
